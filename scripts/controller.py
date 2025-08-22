@@ -23,7 +23,7 @@ def design_controller(tf):
     """
 
     bounds = [(1e-8, None), (0., None), (0., None)]
-    integrator = ct.TransferFunction([1], [1])
+    integrator = ct.TransferFunction([1], [1, 0])
     pid = auto_tune_app(integrator * tf, bounds=bounds)
 
     return pid.Kp, pid.Ki, pid.Kd
