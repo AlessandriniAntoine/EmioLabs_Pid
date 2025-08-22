@@ -31,10 +31,10 @@ The first step consists in using open-loop control within the simulation environ
 The motor used in the simulation is subject to physical constraints, including a maximum speed of 75 revolutions per minute (rpm), which must be strictly enforced. Additionally, the initial position of the motor must be specified, along with the corresponding minimum and maximum angles that can be reached from this starting point.
 
 To avoid high-frequency oscillations in motor position, a low-pass filter is applied, defined by a given cutoff frequency $f_c$. The transfer function of the filter is given by:
-$$H(s) = \frac{1}{\tau p + 1}$$
+$$H(s) = \frac{1}{\tau s + 1}$$
 where $\tau = \frac{1}{2\pi f_c}$ is the time constant of the filter. This filter smooths the input commands to the motor, preventing abrupt changes that could lead to unrealistic behavior in the simulation. This filter can be implemented in discrete time using Euler's implicit method, resulting in the following difference equation:
-$$ s(k+1) = \frac{dt}{\tau + dt} s(k) + (1 - \frac{dt}{\tau + dt}) u(k) $$
-where $s(k)$ is the filtered signal at time step $k$, $u(k)$ is the signal at time step $k$, and $dt$ is the simulation time step.
+$$ f(k+1) = \frac{dt}{\tau + dt} f(k) + (1 - \frac{dt}{\tau + dt}) g(k) $$
+where $f(k)$ is the filtered signal at time step $k$, $g(k)$ is the signal at time step $k$, and $dt$ is the simulation time step.
 
 To excite the system in a way that is informative for model identification, it is recommended to apply inputs drawn from a normal distribution, resulting in a pseudo-random motion of the motor. To further enrich the data, random noise is also added to the input commands.
 
