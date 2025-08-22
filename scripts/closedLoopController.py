@@ -68,7 +68,7 @@ class ClosedLoopController(BaseController):
             self.error_prev = error
 
             deltaMotorVel = np.array([self.Kp * error + self.Ki * self.integral + self.Kd * derivative])
-            desiredMotorPos += deltaMotorVel
+            desiredMotorPos += deltaMotorVel * self.dt
             # desiredMotorPos = np.array([self.Kp * error + self.Ki * self.integral + self.Kd * derivative])
             print(f"{desiredMotorPos=}")
             self.motor.position.value = desiredMotorPos[0]

@@ -26,13 +26,13 @@ def auto_tune_app(sys_tf: ct.TransferFunction, bounds: list | None=None, method:
     fig, ax = plt.subplots(figsize=(6,4))
     T_init = ct.feedback(initial_pid.tf * sys_tf, 1)
     _, y_init = ct.step_response(goal * T_init, t)
-    line_sys, = ax.plot(t, y_sys, '--r', label="Système")
-    line_pid, = ax.plot(t, y_init, label="PID optimisé")
-    ax.set_xlabel("Temps (s)")
-    ax.set_ylabel("Réponse")
+    line_sys, = ax.plot(t, y_sys, '--r', label="System")
+    line_pid, = ax.plot(t, y_init, label="Optimized PID")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Response")
     ax.grid(True)
     ax.legend()
-    ax.set_title(f"PID initial: \nKp={initial_pid.Kp}, Ki={initial_pid.Ki}, Kd={initial_pid.Kd}")
+    ax.set_title(f"Initial PID: \nKp={initial_pid.Kp}, Ki={initial_pid.Ki}, Kd={initial_pid.Kd}")
 
     canvas = FigureCanvasTkAgg(fig, master=root)
     canvas.get_tk_widget().grid(row=0, column=0, columnspan=3, pady=10)
@@ -63,7 +63,7 @@ def auto_tune_app(sys_tf: ct.TransferFunction, bounds: list | None=None, method:
         ax.relim()
         ax.autoscale_view()
         ax.set_title(
-            f"{pid.name} optimized: Cost: {cost:.1e}\nKp={pid.Kp:.1e}, Ki={pid.Ki:.1e}, Kd={pid.Kd:.1e}"
+            f"Optimized {pid.name}: Cost: {cost:.1e}\nKp={pid.Kp:.1e}, Ki={pid.Ki:.1e}, Kd={pid.Kd:.1e}"
         )
         canvas.draw_idle()
 
@@ -110,7 +110,7 @@ def auto_estimate_app(inputs, outputs, dt):
     current_tf = ct.TransferFunction([1], [1])
 
     root = tk.Tk()
-    root.title("PID Auto-tuning")
+    root.title("Transfer Function Auto-identification")
 
     t = np.arange(0, (len(outputs)-1)*dt + dt/ 2 , dt)
 
@@ -118,10 +118,10 @@ def auto_estimate_app(inputs, outputs, dt):
     # Figure Matplotlib
     fig, ax = plt.subplots(figsize=(10,8))
     _, y_init = ct.forced_response(current_tf, t, inputs)
-    line_sys, = ax.plot(t, outputs, '--r', label="Système")
-    line_pid, = ax.plot(t, y_init, label="PID optimisé")
-    ax.set_xlabel("Temps (s)")
-    ax.set_ylabel("Réponse")
+    line_sys, = ax.plot(t, outputs, '--r', label="System")
+    line_pid, = ax.plot(t, y_init, label="Identified TF")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Response")
     ax.grid(True)
     ax.legend()
     ax.set_title(f"TF : Error = 0\nNum={current_tf.num[0][0].tolist()}, \nDen={current_tf.den[0][0].tolist()}")
