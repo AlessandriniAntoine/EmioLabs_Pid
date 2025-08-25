@@ -36,9 +36,10 @@ def arg_parse():
                         help="Motor cutoff frequency",
                         default='20.', dest="motorCutoffFreq")
 
-    parser.add_argument('--order', type=str,
-                        help="Specify the order of the reduction",
-                        default='7', dest="order")
+    parser.add_argument('--nb_zeros', type=int, default=0,
+        help="Number of zeros in the transfer function", dest="nb_zeros")
+    parser.add_argument('--nb_poles', type=int, default=2,
+        help="Number of poles in the transfer function", dest="nb_poles")
 
 
     try:
@@ -200,7 +201,7 @@ def filterFirstOder(signal, signalFiltered, cutoffFreq=1., samplingFreq=60.):
 #############################################################################
 def processCamera(trackerPos, event):
     """Update tracker position."""
-    json_path = os.path.join(data_path, "hardware", "cameraparameter.json")
+    json_path = os.path.join(data_path, "cameraparameter.json")
     if not os.path.exists(json_path):
         raise FileNotFoundError(f"Camera parameter file not found at {json_path}")
     with open(json_path, 'r') as fp:
@@ -212,6 +213,8 @@ def processCamera(trackerPos, event):
         compute_point_cloud=False,
         parameter=json_parameters)
     camera.set_fps(60)
+    camera.set_depth_max(600)
+    camera.set_depth_min(0)
     camera.open()
 
     while True:
@@ -257,45 +260,31 @@ def processController(trackerPos, sharedMotorPos, sharedRefPos, sharedStart, sha
     motorMax = float(args.motorMax)
 
     # control data
-    order = int(args.order)
-    modelPath = os.path.join(data_path, "models", f"order{order}.npz")
-    controlPath = os.path.join(data_path, "control", f"order{order}.npz")
-    observerPath = os.path.join(data_path, "control", f"order{order}_obs.npz")
-    if not os.path.exists(modelPath):
-        raise FileNotFoundError(f"Model data file {modelPath} does not exist. Please run the identification script first.")
-    if not os.path.exists(controlPath):
-        raise FileNotFoundError(f"Closed loop data file {controlPath} does not exist. Please run the controller script first.")
-    if not os.path.exists(observerPath):
-        raise FileNotFoundError(f"Observer data file {observerPath} does not exist. Please run the observer script first.")
+    pid_path = os.path.join(data_path, f"pid_{int(args.nb_zeros)}zeros_{int(args.nb_poles)}poles.npz")
+    if not os.path.exists(pid_path):
+        raise FileNotFoundError(f"PID file {pid_path} does not exist. Please run the controller script first.")
 
-    dataModel = np.load(modelPath)
-    A = dataModel["stateMatrix"]
-    B = dataModel["inputMatrix"]
-    C = dataModel["outputMatrix"]
+    data_pid = np.load(pid_path)
+    Kp = data_pid["proportionalGain"]
+    Ki = data_pid["integralGain"]
+    Kd = data_pid["derivativeGain"]
 
-    dataCl = np.load(controlPath)
-    K = dataCl["feedbackGain"]
-    G = dataCl["feedForwardGain"]
-
-    dataObs = np.load(observerPath)
-    L = dataObs["observerGain"]
-    observerState = np.zeros((2*order, 1))
+    integral = np.zeros((1,))
+    error_prev = np.zeros((1,))
+    dt = 1 / samplingFreq
 
     # Initialize variables
     initialMarkersPos = np.zeros((3*nbMarkers, ))
     measureFiltered = np.zeros((3*nbMarkers, ))
     markersPosPrev = np.zeros((3*nbMarkers, ))
-    motorPos = np.zeros((B.shape[1],))
-    motorPosPrev = np.zeros((B.shape[1],))
-    currentMotorPos = np.zeros((B.shape[1],))
+    motorPos = np.zeros((1,))
+    motorPosPrev = np.zeros((1,))
+    currentMotorPos = np.zeros((1,))
 
     # recorded data
     markersPositions = []
     motorPositions = []
     referenceList = []
-    outputList = []
-    observerStatesList = []
-    observerOutputList = []
     controlModeList = []
 
     motors.angles = [motorInit, 0, 0, 0]
@@ -331,24 +320,19 @@ def processController(trackerPos, sharedMotorPos, sharedRefPos, sharedStart, sha
                 print("Filtering markers ...")
                 markersPos = markersPosPrev.copy()
 
-
-            output = (markersPos.reshape(-1,1))[[x for i in range(nbMarkers) for x in [3*i+1, 3*i+2]]]
-            outputPrev = (markersPosPrev.reshape(-1,1))[[x for i in range(nbMarkers) for x in [3*i+1, 3*i+2]]]
-
-            # observer update
-            cmd = np.array([currentMotorPos]).reshape(-1, 1)
-            observerOutput = C @ observerState
-            observerState = A @ observerState + B @ cmd + L @ (outputPrev - observerOutput)
-
             ref = np.array([sharedRefPos[:]]).reshape(-1, 1)
 
             if sharedControlMode.value == ControlMode["Open Loop"]:
                 with sharedMotorPos.get_lock():
                     command = np.array(sharedMotorPos[:])
             else:
-                command = G @ ref - K @ observerState
+                error = ref[0, 0] - markersPos[2]
+                integral += error * dt
+                derivative = (error - error_prev) / dt
+                error_prev = error
+                command = Kp * error + Ki * integral + Kd * derivative
                 command = command.flatten()
-                # print(f"Command: {command}")
+                print(f"{ref[0, 0]=}, {markersPos[2]=}, {error=}, {command=}")
 
 
 
@@ -365,9 +349,6 @@ def processController(trackerPos, sharedMotorPos, sharedRefPos, sharedStart, sha
                     markersPositions.append(markersPos.flatten())
                     motorPositions.append(currentMotorPos)
                     referenceList.append(ref.flatten())
-                    outputList.append(output.flatten())
-                    observerStatesList.append(observerState.flatten())
-                    observerOutputList.append(observerOutput.flatten())
                     controlModeList.append(sharedControlMode.value)
                     counterRecord +=1
 
@@ -388,9 +369,6 @@ def processController(trackerPos, sharedMotorPos, sharedRefPos, sharedStart, sha
                 markersPos=markersPositions,
                 motorPos=motorPositions,
                 reference=referenceList,
-                outputsPos=outputList,
-                observerState=observerStatesList,
-                observerOutput=observerOutputList,
                 controlMode=controlModeList,
                 initialMarkersPos=initialMarkersPos,
             )
@@ -412,8 +390,6 @@ def main():
     sharedRecord = multiprocessing.Value("i", False)
     sharedSave = multiprocessing.Value("i", False)
     event = multiprocessing.Event()
-
-    # Create the GUI application
 
 
     # Create processes

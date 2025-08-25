@@ -80,7 +80,7 @@ def arg_parse():
     try:
         args = parser.parse_args()
     except SystemExit:
-        Sofa.msg_error(sys.argv[0], "Invalid arguments, get defaults instead.")
+        print("Invalid arguments, get defaults instead.")
         args = parser.parse_args([])
 
     return args
