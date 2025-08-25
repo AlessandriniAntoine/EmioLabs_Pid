@@ -1,9 +1,11 @@
 from .baseController import *
 
+
 ControlMode = {"Open Loop": False, "State Feedback": True}
 
+
 class ClosedLoopController(BaseController):
-    def __init__(self, leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq, nb_zeros, nb_poles):
+    def __init__(self, leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain):
         super().__init__(leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq)
 
         # Specific gui setup
@@ -32,15 +34,22 @@ class ClosedLoopController(BaseController):
 
         pid_path = os.path.join(data_path, f"pid_{nb_zeros}zeros_{nb_poles}poles.npz")
         pid_data = np.load(pid_path)
-        self.setup_additional_variables(pid_data)
+        self.setup_additional_variables(pid_data, optimal, proportionalGain, integralGain, derivativeGain)
 
 
-    def setup_additional_variables(self, pid_data):
+    def setup_additional_variables(self, pid_data, optimal, proportionalGain, integralGain, derivativeGain):
 
         # additional states for closed-loop control
-        self.Kp = pid_data["proportionalGain"]
-        self.Ki = pid_data["integralGain"]
-        self.Kd = pid_data["derivativeGain"]
+        if not optimal:
+            self.Kp = proportionalGain
+            self.Ki = integralGain
+            self.Kd = derivativeGain
+
+        else:
+            self.Kp = pid_data["proportionalGain"]
+            self.Ki = pid_data["integralGain"]
+            self.Kd = pid_data["derivativeGain"]
+
         self.dt = self.root.dt.value
         self.integral = 0
         self.error_prev = 0
@@ -63,15 +72,18 @@ class ClosedLoopController(BaseController):
         if self.guiNode.controlMode.value == ControlMode["State Feedback"]:
             measure = self.markersPos[1, 0] + np.random.normal(0, self.guiNode.noise.value, 1)[0]
             error = self.reference[0] - measure
+
+            # === Step 1: Euler explicite integration ===
+            # TODO: Compute integral and derivative using Euler explicit integration
             self.integral += error * self.dt
             derivative = (error - self.error_prev) / self.dt
             self.error_prev = error
 
-            deltaMotorVel = np.array([self.Kp * error + self.Ki * self.integral + self.Kd * derivative])
-            desiredMotorPos += deltaMotorVel * self.dt
-            # desiredMotorPos = np.array([self.Kp * error + self.Ki * self.integral + self.Kd * derivative])
-            print(f"{desiredMotorPos=}")
-            self.motor.position.value = desiredMotorPos[0]
+            # === Step 2: Implement PID control law ===
+            # TODO: Implement PID control law
+            desiredMotorPos = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+
+            self.motor.position.value = desiredMotorPos.flatten()[0]
         else:
             if self.guiNode.active.value:
                 desiredMotorPos[0] = self.motor.position.value

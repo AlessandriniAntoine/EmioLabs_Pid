@@ -65,7 +65,18 @@ def arg_parse():
     parser.add_argument('--no-connection', dest="connection", action='store_false',
                         help="use when you want to run the simulation without the robot")
 
-
+    parser.add_argument('--optimal', type=str,
+                        help="Select the optimal controller or hand made controller",
+                        default="1", dest="optimal")
+    parser.add_argument('--proportionalGain', type=str,
+                        help="Define the proportional gain of the PID",
+                        default="1", dest="proportionalGain")
+    parser.add_argument('--integralGain', type=str,
+                        help="Define the integral gain of the PID",
+                        default="1", dest="integralGain")
+    parser.add_argument('--derivativeGain', type=str,
+                        help="Define the derivative gain of the PID",
+                        default="1", dest="derivativeGain")
     try:
         args = parser.parse_args()
     except SystemExit:
@@ -110,6 +121,7 @@ def createScene(rootnode):
     rootnode.gravity = [0., -9810, 0.]
     addSolvers(simulation)
     settings.addObject('RequiredPlugin', name='Sofa.Component.Constraint.Projective')
+    # rootnode.Simulation.EulerImplicitSolver.rayleighStiffness = 0
 
     ##############################################################################
     # Motor
@@ -215,7 +227,8 @@ def createScene(rootnode):
         rootnode.addObject(ClosedLoopController(
             leg, motor, markers, load,
             motorInit, motorMin, motorMax, float(args.motorCutoffFreq),
-            int(args.nb_zeros), int(args.nb_poles)
+            int(args.nb_zeros), int(args.nb_poles), int(args.optimal),
+            float(args.proportionalGain), float(args.integralGain), float(args.derivativeGain)
             ))
 
 

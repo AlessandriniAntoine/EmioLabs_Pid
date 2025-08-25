@@ -82,11 +82,79 @@ Init, Min, Max (rad)
 
 :::::::
 
+::::::: collapse Hand made PID
+
+## Hand made PID
+
+**PID Controller.** A *PID controller* is one of the most common control strategies for continuous-time systems.
+Its control law is given by:
+
+$$
+u(t) = K_p e(t) + K_i \int_0^t e(\tau) \, d\tau + K_d \frac{d e(t)}{dt}
+$$
+
+where:
+- $u(t)$ is the position of the motor,
+- $e(t) = r(t) - y(t)$ is the tracking error,
+- $K_p$ is the *proportional gain* (reaction to the present error),
+- $K_i$ is the *integral gain* (reaction to accumulated error),
+- $K_d$ is the *derivative gain* (reaction to the rate of change of the error).
+
+Each part has a precise objective:
+- *Proportional* term: corrects large errors quickly.
+- *Integral* term: eliminates steady-state error.
+- *Derivative* term: anticipates changes and improves stability.
+
+The pid control structure is as follows:
+|  ![](assets/data/images/labPid-pid-structure.png)   |
+|:------------------------------------------------:|
+| **PID control structure** |
+
+In order to implement the PID controller, you will need to compute the three parts of the control law:
+- The <span style="color:rgba(200, 0, 0, 1);">*integral term*</span>
+- The <span style="color:rgba(0, 0, 200, 1);">*proportional term*</span>
+- The <span style="color:rgba(0, 200, 0, 1);">*derivative term*</span>
+
+The integral term can be computed using Euler explicit integration which leads to:
+$$
+integral(k) = integral(k-1) + e(k) \Delta t
+$$
+
+The derivative term can be computed using Euler explicit integration which leads to:
+$$
+derivative(k) = \frac{e(k) - e(k-1)}{\Delta t}
+$$
+
+:::::: exercise
+
+**Exercise 2:**
+Check the following file to do the tasks listed below.:
+#open-button("assets/labs/EmioLabs_Pid/scripts/closedLoopController.py")
+
+1. Implement the PID control law by computing: the proportional term, the integral term, and the derivative term based on the error using Euler explicit integration.
+2. Select the gains of your pid controller.
+::::: group-grid {style="grid-template-rows:repeat(2, 0fr);"}
+**Proportional Gain**
+#input("proportionalGain")
+
+**Integral Gain**
+#input("integralGain")
+
+**Derivative Gain**
+#input("derivativeGain")
+:::::
+
+3. Test you PID controller on the simulation.
+#runsofa-button("assets/labs/EmioLabs_Pid/lab_pid.py" "--controller" "closedloop" "--framerate" "fps" "--motorCutoffFreq" "cutoffFreq" "--motorInit" "motorInit" "--motorMin" "motorMin" "--motorMax" "motorMax" "--nb_zeros" "nb_zeros" "--nb_poles" "nb_poles" "--optimal" "0"  "--proportionalGain" "proportionalGain" "--integralGain" "integralGain" "--derivativeGain" "derivativeGain")
+::::::
+:::::::
+
+
 ::::: collapse Transfer Function Identification
 
 ## Transfer Function Identification
 
-**Transfer Function Identification.** We now aim to identify a **continuous-time transfer function** of the system.
+**Transfer Function Identification.** PID tuning can be complex. Therefore, it is often useful to identify the transfer function of a system to better understand its behavior and design an optimal controller.
 
 A transfer function represents the relationship between the input and output of a **linear time-invariant (LTI)** system in the Laplace domain. It is typically written as:
 
@@ -103,11 +171,6 @@ A transfert function is defined by:
 - its number or zeros: the number of of the numerator ($m-1$),
 - its number of poles: the number of of the denominator ($n-1$),
 - its order: the degree of the denominator $n$.
-
-The transfer function describes how each frequency component of the input is modified by the system to produce the output. It is particularly useful for:
-- *Frequency-domain analysis* (Bode plots, Nyquist plots),
-- *Stability assessment*,
-- *Control design*.
 
 
 If we have time-domain measurements of the input $u(t)$ and output $y(t)$, the identification problem consists of finding the parameters $a_i$ and $b_i$ such that the transfer function's response matches the measured output.
@@ -136,28 +199,11 @@ Given the reduction matrix that you generated on the previous step, you will:
 ::::
 :::::
 
-::::::: collapse PID Tuning
+::::::: collapse Optimal PID Tuning
 
-## PID Tuning
+## Optimal PID Tuning
 
-**PID Tuning** A *PID controller* is one of the most common control strategies for continuous-time systems.
-Its control law is given by:
-
-$$
-u(t) = K_p e(t) + K_i \int_0^t e(\tau) \, d\tau + K_d \frac{d e(t)}{dt}
-$$
-
-where:
-- $e(t) = r(t) - y(t)$ is the tracking error,
-- $K_p$ is the *proportional gain* (reaction to the present error),
-- $K_i$ is the *integral gain* (reaction to accumulated error),
-- $K_d$ is the *derivative gain* (reaction to the rate of change of the error).
-
-Each part has a precise objective:
-- *Proportional* term: corrects large errors quickly.
-- *Integral* term: eliminates steady-state error.
-- *Derivative* term: anticipates changes and improves stability.
-
+**PID Tuning**. Based on the model, you can you optimization technics to determine
 
 We will identify the optimal $K_p$, $K_i$, and $K_d$ using a Python toolbox that searches for the parameters minimizing a *cost function*. The cost function combines *four weighted criteria*:
 
@@ -218,7 +264,7 @@ Given the linear model that you generated on the previous step, you will:
 
 This setup will first be implemented in SOFA, which provides the system dynamics and sensor measurements. It enables evaluation of the full closed-loop system without requiring physical hardware, while still respecting realistic sensing and estimation constraints.
 
-#runsofa-button("assets/labs/EmioLabs_Pid/lab_pid.py" "--controller" "closedloop" "--framerate" "fps" "--motorCutoffFreq" "cutoffFreq" "--motorInit" "motorInit" "--motorMin" "motorMin" "--motorMax" "motorMax" "--nb_zeros" "nb_zeros" "--nb_poles" "nb_poles")
+#runsofa-button("assets/labs/EmioLabs_Pid/lab_pid.py" "--controller" "closedloop" "--framerate" "fps" "--motorCutoffFreq" "cutoffFreq" "--motorInit" "motorInit" "--motorMin" "motorMin" "--motorMax" "motorMax" "--nb_zeros" "nb_zeros" "--nb_poles" "nb_poles" "--optimal" "1")
 
 In a second step, the same control law can be deployed on the real robot. The observer will estimate the state based on measured outputs (e.g., marker positions), and the computed control input $u$ will be applied to the motor.
 
@@ -226,8 +272,4 @@ In a second step, the same control law can be deployed on the real robot. The ob
 $ python scripts/hardware.py --motorCutoffFreq cutoffFreq --motorInit motorInit --motorMin motorMin --motorMax motorMax --nb_zeros nb_zeros --nb_poles nb_poles
 ```
 
-::: highlight
-#icon("warning") Insight:
-This architecture enables real-time control using only partial measurements, and bridges the gap between model-based design and physical implementation. The exact same controller and observer gains designed in simulation can be reused on the real system, as long as the model accurately captures the dynamics.
-:::
 :::::
