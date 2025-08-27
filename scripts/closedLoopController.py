@@ -5,7 +5,7 @@ ControlMode = {"Open Loop": False, "State Feedback": True}
 
 
 class ClosedLoopController(BaseController):
-    def __init__(self, leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain):
+    def __init__(self, leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain, backCalculationGain):
         super().__init__(leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq)
 
         # add mechanical object for reference
@@ -19,11 +19,11 @@ class ClosedLoopController(BaseController):
             showColor=[0, 0, 1, 1]
         )
 
-        self.setup_additional_variables(nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain)
+        self.setup_additional_variables(nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain, backCalculationGain)
         self.setup_additional_gui()
 
 
-    def setup_additional_variables(self, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain):
+    def setup_additional_variables(self, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain, backCalculationGain):
 
         # pid gains
         if not optimal:
@@ -42,41 +42,22 @@ class ClosedLoopController(BaseController):
         self.kd_exposant = int(np.floor(np.log10(abs(self.Kd))))-1
         self.kp_init, self.ki_init, self.kd_init = self.Kp, self.Ki, self.Kd
 
+        self.Kb = backCalculationGain
+        self.use_antiwindup = (self.Kb > 0)
+        if self.use_antiwindup:
+            self.kb_exposant = int(np.floor(np.log10(abs(self.Kb))))-1
+            self.kb_init = self.Kb
+
         # states for closed-loop control
         self.dt = self.root.dt.value
         self.integral = 0
         self.error_prev = 0
         self.reference = np.zeros((1,))
+        self.command = np.zeros((1,))
+        self.command_sat = np.zeros((1,))
 
         # additional data storage
         self.commandModeList = []
-
-
-    def setup_additional_gui(self):
-        # Specific gui variables
-        self.guiNode.addData(name="noise", type="float", value=0.)
-        self.guiNode.addData(name="reference", type="float", value=0.)
-        self.guiNode.addData(name="output", type="float", value=0.)
-        self.guiNode.addData(name="controlMode", type="bool", value=ControlMode["Open Loop"])
-        self.guiNode.addData(name="Kp", type="float", value=self.Kp/(10**self.kp_exposant))
-        self.guiNode.addData(name="Ki", type="float", value=self.Ki/(10**self.ki_exposant))
-        self.guiNode.addData(name="Kd", type="float", value=self.Kd/(10**self.kd_exposant))
-        self.guiNode.addData(name="reset", type="int", value=0)
-        self.guiNode.addData(name="reset_gain", type="int", value=0)
-
-        # specific gui data
-        MyGui.MyRobotWindow.addSettingInGroup("Reference (mm)", self.guiNode.reference, -50, 50, "Control Law")
-        MyGui.MyRobotWindow.addSettingInGroup("Noise (mm)", self.guiNode.noise, 0, 3, "Control Law")
-        MyGui.MyRobotWindow.addSettingInGroup("Control Mode", self.guiNode.controlMode, 0, 1, "Buttons")
-        MyGui.MyRobotWindow.addSettingInGroup(f"Kp (10^{self.kp_exposant})", self.guiNode.Kp, 0, 100, "PID")
-        MyGui.MyRobotWindow.addSettingInGroup(f"Ki (10^{self.ki_exposant})", self.guiNode.Ki, 0, 100, "PID")
-        MyGui.MyRobotWindow.addSettingInGroup(f"Kd (10^{self.kd_exposant})", self.guiNode.Kd, 0, 100, "PID")
-        MyGui.MyRobotWindow.addSettingInGroup("Reset Gains", self.guiNode.reset_gain, 0, 1, "PID")
-        MyGui.MyRobotWindow.addSettingInGroup("Reset", self.guiNode.reset, 0, 1, "Buttons")
-
-        # Plotting data
-        MyGui.PlottingWindow.addData("Reference", self.guiNode.reference)
-        MyGui.PlottingWindow.addData("Output", self.guiNode.output)
 
 
     def execute_control_at_camera_frame(self):
@@ -95,15 +76,23 @@ class ClosedLoopController(BaseController):
 
             # === Step 1: Euler explicite integration ===
             # TODO: Compute integral and derivative using Euler explicit integration
-            self.integral += error * self.dt
+            if self.use_antiwindup:
+                antiwidup_term = self.Kb * (self.command_sat - self.command)
+                self.integral += error * self.dt + antiwidup_term
+            else:
+                self.integral += error * self.dt
             derivative = (error - self.error_prev) / self.dt
             self.error_prev = error
 
             # === Step 2: Implement PID control law ===
             # TODO: Implement PID control law
             desiredMotorPos = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+            if self.use_antiwindup:
+                self.command = desiredMotorPos
+                desiredMotorPos = np.clip(desiredMotorPos, self.motorMin, self.motorMax)
+                self.command_sat = desiredMotorPos
 
-            self.motor.position.value = desiredMotorPos.flatten()[0]
+            self.motor.position.value = desiredMotorPos.flatten()[0] * 1e2
         else:
             if self.guiNode.active.value:
                 desiredMotorPos[0] = self.motor.position.value * 1e-2
@@ -113,6 +102,37 @@ class ClosedLoopController(BaseController):
             cutoffFreq=self.cutoffFreq, samplingFreq=self.samplingFreq)
 
 
+    def setup_additional_gui(self):
+        # Specific gui variables
+        self.guiNode.addData(name="noise", type="float", value=0.)
+        self.guiNode.addData(name="reference", type="float", value=0.)
+        self.guiNode.addData(name="output", type="float", value=0.)
+        self.guiNode.addData(name="controlMode", type="bool", value=ControlMode["Open Loop"])
+        self.guiNode.addData(name="Kp", type="float", value=self.Kp/(10**self.kp_exposant))
+        self.guiNode.addData(name="Ki", type="float", value=self.Ki/(10**self.ki_exposant))
+        self.guiNode.addData(name="Kd", type="float", value=self.Kd/(10**self.kd_exposant))
+        if self.use_antiwindup:
+            self.guiNode.addData(name="Kb", type="float", value=self.Kb/(10**self.kb_exposant))
+        self.guiNode.addData(name="reset", type="int", value=0)
+        self.guiNode.addData(name="reset_gain", type="int", value=0)
+
+        # specific gui data
+        MyGui.MyRobotWindow.addSettingInGroup("Reference (mm)", self.guiNode.reference, -50, 50, "Control Law")
+        MyGui.MyRobotWindow.addSettingInGroup("Noise (mm)", self.guiNode.noise, 0, 3, "Control Law")
+        MyGui.MyRobotWindow.addSettingInGroup("Control Mode", self.guiNode.controlMode, 0, 1, "Buttons")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Kp (10^{self.kp_exposant})", self.guiNode.Kp, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Ki (10^{self.ki_exposant})", self.guiNode.Ki, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Kd (10^{self.kd_exposant})", self.guiNode.Kd, 0, 100, "PID")
+        if self.use_antiwindup:
+            MyGui.MyRobotWindow.addSettingInGroup(f"Kb (10^{self.kb_exposant})", self.guiNode.Kb, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup("Reset Gains", self.guiNode.reset_gain, 0, 1, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup("Reset", self.guiNode.reset, 0, 1, "Buttons")
+
+        # Plotting data
+        MyGui.PlottingWindow.addData("Reference", self.guiNode.reference)
+        MyGui.PlottingWindow.addData("Output", self.guiNode.output)
+
+
     def execute_control_at_simu_frame(self):
         super().execute_control_at_simu_frame()
         self.guiNode.output.value = self.markersPos[1, 0]
@@ -120,10 +140,14 @@ class ClosedLoopController(BaseController):
             self.guiNode.Kp.value = self.kp_init / (10**self.kp_exposant)
             self.guiNode.Ki.value = self.ki_init / (10**self.ki_exposant)
             self.guiNode.Kd.value = self.kd_init / (10**self.kd_exposant)
+            if self.use_antiwindup:
+                self.guiNode.Kb.value = self.kb_init / (10**self.kb_exposant)
             self.guiNode.reset_gain.value = False
         if self.guiNode.reset.value:
             self.integral = 0
             self.error_prev = 0
+            self.guiNode.reset.value = False
+
 
     def record_data(self):
         super().record_data()

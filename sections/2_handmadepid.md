@@ -6,7 +6,7 @@
 Its control law is given by:
 
 $$
-u(t) = K_p e(t) + K_i \int_0^t e(\tau) \, d\tau + K_d \frac{d e(t)}{dt}
+u(t) = K_p e(t) + K_i \int_0^t e(\tau) \, d\tau + K_d \frac{d}{dt}e(t)
 $$
 
 where:
@@ -60,7 +60,7 @@ Check the following file to do the tasks listed below.:
 #input("derivativeGain")
 :::::
 
-3. Test you PID controller on the simulation.
+3. Test your PID controller on the simulation.
 #runsofa-button("assets/labs/EmioLabs_Pid/lab_pid.py" "--controller" "closedloop" "--framerate" "fps" "--motorCutoffFreq" "cutoffFreq" "--motorInit" "motorInit" "--motorMin" "motorMin" "--motorMax" "motorMax" "--nb_zeros" "nb_zeros" "--nb_poles" "nb_poles" "--optimal" "0"  "--proportionalGain" "proportionalGain" "--integralGain" "integralGain" "--derivativeGain" "derivativeGain")
 ::::::
 :::::::

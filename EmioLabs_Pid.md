@@ -25,3 +25,4 @@ the <span style="color:grey">*grey mass*</span>, and the <span style="color:gree
 #include(assets/labs/EmioLabs_Pid/sections/3_transferfunctionidentification.md)
 #include(assets/labs/EmioLabs_Pid/sections/4_pidoptimization.md)
 #include(assets/labs/EmioLabs_Pid/sections/5_closedloopcontrol.md)
+#include(assets/labs/EmioLabs_Pid/sections/6_antiwindup.md)

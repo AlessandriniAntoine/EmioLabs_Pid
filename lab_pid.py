@@ -77,6 +77,9 @@ def arg_parse():
     parser.add_argument('--derivativeGain', type=str,
                         help="Define the derivative gain of the PID",
                         default="1", dest="derivativeGain")
+    parser.add_argument('--backCalculationGain', type=str,
+                        help="Back calculation gain for anti-windup",
+                        default="0", dest="backCalculationGain")
     try:
         args = parser.parse_args()
     except SystemExit:
@@ -228,7 +231,8 @@ def createScene(rootnode):
             leg, motor, markers, load,
             motorInit, motorMin, motorMax, float(args.motorCutoffFreq),
             int(args.nb_zeros), int(args.nb_poles), int(args.optimal),
-            float(args.proportionalGain), float(args.integralGain), float(args.derivativeGain)
+            float(args.proportionalGain), float(args.integralGain), float(args.derivativeGain),
+            float(args.backCalculationGain)
             ))
 
 
