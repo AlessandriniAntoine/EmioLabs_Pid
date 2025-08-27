@@ -8,19 +8,6 @@ class ClosedLoopController(BaseController):
     def __init__(self, leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain):
         super().__init__(leg, motor, markers, load, motorInit, motorMin, motorMax, cutoffFreq)
 
-        # Specific gui setup
-        self.guiNode.addData(name="noise", type="float", value=0.)
-        self.guiNode.addData(name="reference", type="float", value=0.)
-        self.guiNode.addData(name="output", type="float", value=0.)
-        self.guiNode.addData(name="controlMode", type="bool", value=ControlMode["Open Loop"])
-        MyGui.MyRobotWindow.addSettingInGroup("Reference", self.guiNode.reference, -150, 150, "Control Law")
-        MyGui.MyRobotWindow.addSettingInGroup("Noise", self.guiNode.noise, 0, 3, "Control Law")
-        MyGui.MyRobotWindow.addSettingInGroup("Control Mode", self.guiNode.controlMode, 0, 1, "Buttons")
-
-        # Plotting data
-        MyGui.PlottingWindow.addData("Reference", self.guiNode.reference)
-        MyGui.PlottingWindow.addData("Output", self.guiNode.output)
-
         # add mechanical object for reference
         self.refMo = self.guiNode.addObject("MechanicalObject",
             name="refMo",
@@ -35,6 +22,7 @@ class ClosedLoopController(BaseController):
         pid_path = os.path.join(data_path, f"pid_{nb_zeros}zeros_{nb_poles}poles.npz")
         pid_data = np.load(pid_path)
         self.setup_additional_variables(pid_data, optimal, proportionalGain, integralGain, derivativeGain)
+        self.setup_additional_gui()
 
 
     def setup_additional_variables(self, pid_data, optimal, proportionalGain, integralGain, derivativeGain):
@@ -57,6 +45,21 @@ class ClosedLoopController(BaseController):
 
         # additional data storage
         self.commandModeList = []
+
+
+    def setup_additional_gui(self):
+        # Specific gui setup
+        self.guiNode.addData(name="noise", type="float", value=0.)
+        self.guiNode.addData(name="reference", type="float", value=0.)
+        self.guiNode.addData(name="output", type="float", value=0.)
+        self.guiNode.addData(name="controlMode", type="bool", value=ControlMode["Open Loop"])
+        MyGui.MyRobotWindow.addSettingInGroup("Reference (mm)", self.guiNode.reference, -50, 50, "Control Law")
+        MyGui.MyRobotWindow.addSettingInGroup("Noise (mm)", self.guiNode.noise, 0, 3, "Control Law")
+        MyGui.MyRobotWindow.addSettingInGroup("Control Mode", self.guiNode.controlMode, 0, 1, "Buttons")
+
+        # Plotting data
+        MyGui.PlottingWindow.addData("Reference", self.guiNode.reference)
+        MyGui.PlottingWindow.addData("Output", self.guiNode.output)
 
 
     def execute_control_at_camera_frame(self):
@@ -86,7 +89,7 @@ class ClosedLoopController(BaseController):
             self.motor.position.value = desiredMotorPos.flatten()[0]
         else:
             if self.guiNode.active.value:
-                desiredMotorPos[0] = self.motor.position.value
+                desiredMotorPos[0] = self.motor.position.value * 1e-2
 
         self.command = self.filter(
             desiredMotorPos, self.command,
