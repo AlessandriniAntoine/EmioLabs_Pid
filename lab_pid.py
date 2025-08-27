@@ -239,21 +239,25 @@ def createScene(rootnode):
     ##############################################################################
     # Real Emio Connection
     ##############################################################################
-    if not args.connection:
-        print("Running simulation with connection to the real Emio robot.")
-        from parts.controllers.trackercontroller import DotTracker
-        rootnode.addObject(DotTracker(name="DotTracker",
-                                      root=rootnode,
-                                      nb_tracker=3,
-                                      show_video_feed=False,
-                                      track_colors=True,
-                                      comp_point_cloud=False,
-                                      scale=1,
-                                      rotation=camera.torealrotation,
-                                      translation=camera.torealtranslation))
+    if args.connection:
+        # Add RealSense camera tracker
+        try:
+            from parts.controllers.motorcontroller import MotorController
+            from parts.controllers.trackercontroller import DotTracker
+            rootnode.addObject(MotorController([motor.JointActuator.displacement, None, None, None],
+                                            name="MotorController"))
 
-        from parts.controllers.motorcontroller import MotorController
-        rootnode.addObject(MotorController([motor.JointActuator.displacement, None, None, None],
-                                           name="MotorController"))
+            tracker = DotTracker(name="DotTracker",
+                                 root=rootnode,
+                                 configuration="extended",
+                                 nb_tracker=2,
+                                 show_video_feed=False,
+                                 track_colors=True,
+                                 comp_point_cloud=False,
+                                 scale=1)
+
+            rootnode.addObject(tracker)
+        except RuntimeError:
+            Sofa.msg_error(__file__, "Camera not detected")
 
     return rootnode
