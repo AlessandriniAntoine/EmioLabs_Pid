@@ -13,7 +13,7 @@ lab_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 data_path = os.path.join(lab_path, "data")
 
 
-nbMarkers = 2  # Number of markers to track
+nbMarkers = 1  # Number of markers to track
 ControlMode = {"Open Loop": False, "Closed Loop": True}
 
 
@@ -298,13 +298,7 @@ def processController(trackerPos, sharedMotorPos, sharedRefPos, sharedStart, sha
         # Measurements
         with trackerPos.get_lock():
             measure = np.array(trackerPos[:])
-
-        # order the markers
-        pos = measure.reshape(nbMarkers, 3)
-        i_sorted_y = sorted([0, 1], key=lambda i: pos[i, 1])
-        new_order = [i_sorted_y[0], i_sorted_y[1]]
-        pos_sorted = pos[new_order]
-        measure = pos_sorted.flatten()
+        measure = measure.flatten()
 
         # Filter the measurements
         measureFiltered = filterFirstOder(measure, measureFiltered,

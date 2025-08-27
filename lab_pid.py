@@ -210,7 +210,7 @@ def createScene(rootnode):
     ##############################################################################
     markers = leg.leg.addChild("Markers")
     markers.addObject("MechanicalObject",
-                      position=[[-5, -191, -22.5], [-5, -100, -22.5]],
+                      position=[[-5, -191, -22.5]],
                       translation=translation,
                       showObject=True, showObjectScale=7, drawMode=1, showColor=[0, 1, 0, 1])
     markers.addObject("BarycentricMapping" if args.legModel == "tetra" else "SkinningMapping")
