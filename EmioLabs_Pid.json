@@ -1,0 +1,6 @@
+{
+  "name": "EmioLabs_Pid",
+  "title": "Lab PID",
+  "description": "Control the dynamic ot the end of the leg of Emio with a PID controller",
+  "url": "https://github.com/AlessandriniAntoine/EmioLabs_Pid.git"
+}
