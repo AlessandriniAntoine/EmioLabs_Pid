@@ -19,25 +19,30 @@ class ClosedLoopController(BaseController):
             showColor=[0, 0, 1, 1]
         )
 
-        pid_path = os.path.join(data_path, f"pid_{nb_zeros}zeros_{nb_poles}poles.npz")
-        pid_data = np.load(pid_path)
-        self.setup_additional_variables(pid_data, optimal, proportionalGain, integralGain, derivativeGain)
+        self.setup_additional_variables(nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain)
         self.setup_additional_gui()
 
 
-    def setup_additional_variables(self, pid_data, optimal, proportionalGain, integralGain, derivativeGain):
+    def setup_additional_variables(self, nb_zeros, nb_poles, optimal, proportionalGain, integralGain, derivativeGain):
 
-        # additional states for closed-loop control
+        # pid gains
         if not optimal:
             self.Kp = proportionalGain
             self.Ki = integralGain
             self.Kd = derivativeGain
 
         else:
+            pid_path = os.path.join(data_path, f"pid_{nb_zeros}zeros_{nb_poles}poles.npz")
+            pid_data = np.load(pid_path)
             self.Kp = pid_data["proportionalGain"]
             self.Ki = pid_data["integralGain"]
             self.Kd = pid_data["derivativeGain"]
+        self.kp_exposant = int(np.floor(np.log10(abs(self.Kp))))-1
+        self.ki_exposant = int(np.floor(np.log10(abs(self.Ki))))-1
+        self.kd_exposant = int(np.floor(np.log10(abs(self.Kd))))-1
+        self.kp_init, self.ki_init, self.kd_init = self.Kp, self.Ki, self.Kd
 
+        # states for closed-loop control
         self.dt = self.root.dt.value
         self.integral = 0
         self.error_prev = 0
@@ -48,14 +53,26 @@ class ClosedLoopController(BaseController):
 
 
     def setup_additional_gui(self):
-        # Specific gui setup
+        # Specific gui variables
         self.guiNode.addData(name="noise", type="float", value=0.)
         self.guiNode.addData(name="reference", type="float", value=0.)
         self.guiNode.addData(name="output", type="float", value=0.)
         self.guiNode.addData(name="controlMode", type="bool", value=ControlMode["Open Loop"])
+        self.guiNode.addData(name="Kp", type="float", value=self.Kp/(10**self.kp_exposant))
+        self.guiNode.addData(name="Ki", type="float", value=self.Ki/(10**self.ki_exposant))
+        self.guiNode.addData(name="Kd", type="float", value=self.Kd/(10**self.kd_exposant))
+        self.guiNode.addData(name="reset", type="int", value=0)
+        self.guiNode.addData(name="reset_gain", type="int", value=0)
+
+        # specific gui data
         MyGui.MyRobotWindow.addSettingInGroup("Reference (mm)", self.guiNode.reference, -50, 50, "Control Law")
         MyGui.MyRobotWindow.addSettingInGroup("Noise (mm)", self.guiNode.noise, 0, 3, "Control Law")
         MyGui.MyRobotWindow.addSettingInGroup("Control Mode", self.guiNode.controlMode, 0, 1, "Buttons")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Kp (10^{self.kp_exposant})", self.guiNode.Kp, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Ki (10^{self.ki_exposant})", self.guiNode.Ki, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup(f"Kd (10^{self.kd_exposant})", self.guiNode.Kd, 0, 100, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup("Reset Gains", self.guiNode.reset_gain, 0, 1, "PID")
+        MyGui.MyRobotWindow.addSettingInGroup("Reset", self.guiNode.reset, 0, 1, "Buttons")
 
         # Plotting data
         MyGui.PlottingWindow.addData("Reference", self.guiNode.reference)
@@ -99,7 +116,14 @@ class ClosedLoopController(BaseController):
     def execute_control_at_simu_frame(self):
         super().execute_control_at_simu_frame()
         self.guiNode.output.value = self.markersPos[1, 0]
-
+        if self.guiNode.reset_gain.value:
+            self.guiNode.Kp.value = self.kp_init / (10**self.kp_exposant)
+            self.guiNode.Ki.value = self.ki_init / (10**self.ki_exposant)
+            self.guiNode.Kd.value = self.kd_init / (10**self.kd_exposant)
+            self.guiNode.reset_gain.value = False
+        if self.guiNode.reset.value:
+            self.integral = 0
+            self.error_prev = 0
 
     def record_data(self):
         super().record_data()
