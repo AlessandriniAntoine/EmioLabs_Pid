@@ -93,7 +93,7 @@ def attachLoad(centerpart):
     load = centerpart.addChild("Load")
     load.addObject("MechanicalObject", template="Rigid3", position=[0, 33, 0, 0., 0, 0., 1],
                    showObject=False, showObjectScale=20)
-    load.addObject("UniformMass", totalMass=0.315)
+    load.addObject("UniformMass", totalMass=0.0315)
     visual = load.addChild("Visual")
     visual.addObject("MeshSTLLoader", filename="../../data/meshes/centerparts/greymass.stl",
                      translation=[0, -15, 0],
@@ -164,7 +164,7 @@ def createScene(rootnode):
     ##############################################################################
     load = simulation.addChild("Load")
     load.addObject("MechanicalObject", template="Rigid3", position=[[0, -200, 80, 0.707, -0.707, 0., 0.]])
-    load.addObject("UniformMass", totalMass=0.36)
+    load.addObject("UniformMass", totalMass=0.6)
     visual = load.addChild("Visual")
     visual.addObject("MeshSTLLoader",
                      filename=getLoadingLocation("../../data/meshes/centerparts/greymass.stl", __file__),

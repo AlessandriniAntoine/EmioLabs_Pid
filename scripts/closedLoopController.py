@@ -71,8 +71,17 @@ class ClosedLoopController(BaseController):
 
         # control
         if self.guiNode.controlMode.value == ControlMode["State Feedback"]:
-            measure = self.markersPos[1, 0] + np.random.normal(0, self.guiNode.noise.value, 1)[0]
+            measure = self.markersPos[1, 0] + self.guiNode.noise.value * (np.random.rand()*2-1)
             error = self.reference[0] - measure
+
+            # === Step 2: Implement PID control law ===
+            # TODO: Implement PID control law
+            derivative = (error - self.error_prev) / self.dt
+            desiredMotorPos = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+            if self.use_antiwindup:
+                self.command = desiredMotorPos
+                desiredMotorPos = np.clip(desiredMotorPos, self.motorMin, self.motorMax)
+                self.command_sat = desiredMotorPos
 
             # === Step 1: Euler explicite integration ===
             # TODO: Compute integral and derivative using Euler explicit integration
@@ -81,16 +90,7 @@ class ClosedLoopController(BaseController):
                 self.integral += error * self.dt + antiwidup_term
             else:
                 self.integral += error * self.dt
-            derivative = (error - self.error_prev) / self.dt
             self.error_prev = error
-
-            # === Step 2: Implement PID control law ===
-            # TODO: Implement PID control law
-            desiredMotorPos = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-            if self.use_antiwindup:
-                self.command = desiredMotorPos
-                desiredMotorPos = np.clip(desiredMotorPos, self.motorMin, self.motorMax)
-                self.command_sat = desiredMotorPos
 
             self.motor.position.value = desiredMotorPos.flatten()[0] * 1e2
         else:

@@ -104,6 +104,8 @@ def auto_estimate_app(inputs, outputs, dt):
             f"TF : Error = {error:.2e}\nNum=[{', '.join(f'{n:.1e}' for n in num)}],\nDen=[{', '.join(f'{d:.1e}' for d in den)}]"
         )
         canvas.draw_idle()
+        ct.pole_zero_plot(tf, title="Identified Transfer Function Poles and Zeros")
+        plt.show()
 
     def make_slider(name, var, row):
         label = ttk.Label(root, text=name)
@@ -269,7 +271,7 @@ def auto_tune_app(sys_tf: ct.TransferFunction, bounds: list | None=None, method:
     make_slider("Transition", weights["transition_metric"], 2, 10)
     make_slider("Steady state error", weights["steady_state_error"], 3, 10)
     make_slider("Command effort", weights["command_effort"], 4, 10)
-    make_slider("Duration simulation (s)", end_time, 5, 50)
+    make_slider("Duration simulation (s)", end_time, 5, 500)
 
     root.columnconfigure(1, weight=1)
     optimize_callback()

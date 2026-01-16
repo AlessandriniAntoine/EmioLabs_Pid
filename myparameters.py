@@ -1,4 +1,4 @@
-youngModulus = 3.5e4
+youngModulus = 9.5e5
 poissonRatio = 0.49
 massDensity = 1.220e-6
 width = 10

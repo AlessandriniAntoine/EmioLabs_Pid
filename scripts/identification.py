@@ -21,6 +21,8 @@ def identify_function(inputs, outputs, dt):
     """
 
     tf = auto_estimate_app(inputs, outputs, dt)
+
+    plt.show()
     return tf
 
 ####################################################################################
